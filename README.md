@@ -10,7 +10,7 @@ This project is a password manager application built using PyQt6, offering a gra
 - View stored passwords
 - Password generation
 - Master password modification
-
+- Export password databse to csv 
 
 
 ## Installation
