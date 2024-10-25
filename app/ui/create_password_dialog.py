@@ -1,4 +1,12 @@
-from PyQt6.QtWidgets import QDialog, QLineEdit, QLabel, QPushButton, QMessageBox, QGridLayout
+from PyQt6.QtWidgets import (
+    QDialog,
+    QLineEdit,
+    QLabel,
+    QPushButton,
+    QMessageBox,
+    QGridLayout,
+)
+
 
 class CreatePasswordDialog(QDialog):
     def __init__(self, password_manager, parent=None):
@@ -32,7 +40,9 @@ class CreatePasswordDialog(QDialog):
         if password != confirm:
             QMessageBox.warning(self, "Error", "Passwords do not match")
         elif len(password) < 8:
-            QMessageBox.warning(self, "Error", "Password must be at least 8 characters long")
+            QMessageBox.warning(
+                self, "Error", "Password must be at least 8 characters long"
+            )
         else:
             self.password_manager.set_password(password)
             self.accept()

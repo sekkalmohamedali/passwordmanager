@@ -1,4 +1,12 @@
-from PyQt6.QtWidgets import QDialog, QLineEdit, QLabel, QPushButton, QMessageBox, QGridLayout
+from PyQt6.QtWidgets import (
+    QDialog,
+    QLineEdit,
+    QLabel,
+    QPushButton,
+    QMessageBox,
+    QGridLayout,
+)
+
 
 class LoginDialog(QDialog):
     def __init__(self, password_manager, parent=None):

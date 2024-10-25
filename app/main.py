@@ -1,13 +1,15 @@
 import sys
 from PyQt6.QtWidgets import QApplication
-from src.ui.login_dialog import LoginDialog
-from src.ui.create_password_dialog import CreatePasswordDialog
-from src.ui.main_window import MainWindow
-from src.utils.password_settings import PasswordManager
+from app.ui.login_dialog import LoginDialog
+from app.ui.create_password_dialog import CreatePasswordDialog
+from app.ui.main_window import PasswordManager
+from app.utils.database_manager import DatabaseManager
+from app.utils.master_login import MasterLogin
+
 
 def main():
     app = QApplication(sys.argv)
-    password_manager = PasswordManager()
+    password_manager = MasterLogin()
 
     if not password_manager.password_exists():
         create_dialog = CreatePasswordDialog(password_manager)
@@ -22,10 +24,12 @@ def main():
         else:
             sys.exit()
 
+
 def show_main_window(app):
-    main_window = MainWindow()
+    main_window = PasswordManager()
     main_window.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()
