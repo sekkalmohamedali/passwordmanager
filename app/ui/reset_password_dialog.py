@@ -55,7 +55,7 @@ class ResetPasswordDialog(QDialog):
         elif len(new_password) < 8:
             QMessageBox.warning(self, "Error", "Password must be at least 8 characters long")
         else:
-            success = self.password_manager.password_reset(old_password, new_password)
+            success = self.password_manager.password_reset_action(old_password, new_password)
             if success:
                 QMessageBox.information(self, "Success", "Password reset successfully")
                 self.accept()
