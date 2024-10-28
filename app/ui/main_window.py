@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 from app.ui.actions_tab import ActionsTab
 from app.ui.edit_password_dialog import EditPassword
 from app.ui.new_entry_dialog import NewEntryDialog
+from app.ui.password_generator_dialog import PasswordGenerationDialog
 from app.ui.reset_password_dialog import ResetPasswordDialog
 from app.utils.database_manager import DatabaseManager
 from app.utils.master_login import MasterLogin
@@ -97,24 +98,73 @@ class PasswordManager(QMainWindow):
 
         # Create File menu and add actions
         file_menu = menubar.addMenu("File")
-        file_menu.addAction(self.password_reset_action)
-        file_menu.addAction(self.export_csv_action)
-        file_menu.addSeparator()  # Add a separator line
+        file_menu.addAction(self.import_passwords_action)
+        file_menu.addAction(self.export_passwords_action)
+        file_menu.addSeparator()
+        file_menu.addAction(self.backup_database_action)
+        file_menu.addAction(self.restore_database_action)
+        file_menu.addSeparator()
         file_menu.addAction(self.exit_action)
+
+        # Create Edit menu and add actions
+        edit_menu = menubar.addMenu("Edit")
+
+        # Create View menu and add actions
+        view_menu = menubar.addMenu("View")
+        view_menu.addAction(self.show_hide_passwords_actions)
+        view_menu.addAction(self.refresh_action)
+        view_menu.addAction(self.sort_action)
+
+        # Create Tool menu and add actions
+        tool_menu = menubar.addMenu("Tools")
+        tool_menu.addAction(self.password_strength_check_action)
+        tool_menu.addAction(self.duplicate_password_finder_action)
+        tool_menu.addAction(self.password_history_action)
+        tool_menu.addAction(self.generate_password_action)
+
+        # Create Settings menu and add actions
+        settings_menu = menubar.addMenu("Settings")
+        settings_menu.addAction(self.password_reset_action)
+        settings_menu.addAction(self.user_guild_action)
+        settings_menu.addAction(self.about_action)
 
     # Create actions for menu items such as exit and export
     def create_actions(self):
         # File actions
+        self.import_passwords_action = QAction(QIcon(),"Import", self) # other sources or file formats
+        self.import_passwords_action.triggered.connect(self.db_manager.import_data)
+        self.export_passwords_action = QAction(QIcon(),"Export", self)
+        self.export_passwords_action.triggered.connect(self.db_manager.export_data)
+
+        self.backup_database_action = QAction(QIcon(),"Backup",self)
+        self.backup_database_action.triggered.connect(self.db_manager.backup_database)
+        self.restore_database_action = QAction(QIcon(),"Restore",self)
+        self.restore_database_action.triggered.connect(self.db_manager.restore_database)
+
         self.exit_action = QAction(QIcon(), "Exit", self) # Exit
         self.exit_action.setStatusTip("Exit the application")
         self.exit_action.triggered.connect(self.close)
 
-        self.export_csv_action = QAction(QIcon(), "Export", self) # Export to .csv
-        self.export_csv_action.setStatusTip("Export password to .csv")
-        self.export_csv_action.triggered.connect(self.db_manager.export_to_csv)
+        # View Actions
+        self.show_hide_passwords_actions = QAction(QIcon(), "Show/Hide Passwords",self)
+        self.refresh_action = QAction(QIcon(),"Refresh",self)
+        self.sort_action = QAction(QIcon(),"Sort By",self)
 
-        self.password_reset_action = QAction(QIcon(), "Reset Master Password", self) # Password Reset
+        # Tool Actions
+        self.password_strength_check_action = QAction(QIcon(),"Password Strength Checker",self)
+        self.duplicate_password_finder_action = QAction(QIcon(),"Duplicate Password Finder",self)
+        self.password_history_action = QAction(QIcon(),"Password History",self)
+
+        self.generate_password_action = QAction(QIcon(),"Generate Password",self)
+        self.generate_password_action.setStatusTip("Open Password Generator")
+        self.generate_password_action.triggered.connect(self.open_password_generator)
+
+        #Settings Actions
+        self.password_reset_action = QAction(QIcon(), "Reset Master Password", self)  # Password Reset
         self.password_reset_action.triggered.connect(self.on_open_password_reset_clicked)
+
+        self.user_guild_action = QAction(QIcon(),"User Guild",self)
+        self.about_action = QAction(QIcon(),"About",self)
 
     """ Actions Tab """
 
@@ -171,6 +221,10 @@ class PasswordManager(QMainWindow):
 
     """ Generic Functions"""
 
+    # Open password generator dialog
+    def open_password_generator(self):
+        dialog = PasswordGenerationDialog(self)
+        dialog.exec()
     # Open dialog for master password reset
     def on_open_password_reset_clicked(self):
         master_login = MasterLogin()

@@ -1,5 +1,9 @@
 import csv
-
+import datetime
+import json
+import os
+import shutil
+import xml.etree.ElementTree as ET
 from PyQt6.QtCore import QSettings
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
@@ -102,49 +106,158 @@ class DatabaseManager:
             return decrypted_password
         return None
 
-    def export_to_csv(self):
+    def export_data(self):
         entries = self.load_table()
 
-        file_path, _ = QFileDialog.getSaveFileName(
-            None, "Save CSV File", "", "CSV Files (*.csv)"
+        file_path, file_type = QFileDialog.getSaveFileName(
+            None,
+            "Export File",
+            "",
+            "CSV Files (*.csv);;JSON Files (*.json);;XML Files (*.xml)"
         )
 
         if not file_path:
-            QMessageBox.warning(
-                None, "Export Cancelled", "Export was cancelled by the user."
-            )
+            QMessageBox.warning(None, "Export Cancelled", "Export was cancelled by the user.")
             return False
 
-        if not file_path.endswith(".csv"):
-            file_path += ".csv"
-
         try:
-            with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
-                csv_writer = csv.writer(csvfile)
-                csv_writer.writerow(["Website", "Username", "Password"])
-                csv_writer.writerows(
-                    [entry["website"], entry["username"], entry["password"]]
-                    for entry in entries
-                )
+            if file_path.endswith('.csv'):
+                self.export_to_csv(file_path, entries)
+            elif file_path.endswith('.json'):
+                self.export_to_json(file_path, entries)
+            elif file_path.endswith('.xml'):
+                self.export_to_xml(file_path, entries)
+            else:
+                raise ValueError("Unsupported file format")
 
-            QMessageBox.information(
-                None, "Export Success", f"Data exported successfully to {file_path}"
-            )
+            QMessageBox.information(None, "Export Success", f"Data exported successfully to {file_path}")
             return True
 
         except PermissionError:
-            QMessageBox.critical(
-                None,
-                "Export Failed",
-                "Permission denied. The file may be open in another program.",
-            )
+            QMessageBox.critical(None, "Export Failed", "Permission denied. The file may be open in another program.")
             return False
         except Exception as e:
-            QMessageBox.critical(
-                None,
-                "Export Failed",
-                f"An error occurred while saving the file: {str(e)}",
+            QMessageBox.critical(None, "Export Failed", f"An error occurred while saving the file: {str(e)}")
+            return False
+
+    def export_to_csv(self, file_path, entries):
+        with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
+            csv_writer = csv.writer(csvfile)
+            csv_writer.writerow(["Website", "Username", "Password"])
+            csv_writer.writerows(
+                [entry["website"], entry["username"], entry["password"]]
+                for entry in entries
             )
+
+    def export_to_json(self, file_path, entries):
+        data = [
+            {"Website": entry["website"], "Username": entry["username"], "Password": entry["password"]}
+            for entry in entries
+        ]
+        with open(file_path, "w", encoding="utf-8") as jsonfile:
+            json.dump(data, jsonfile, indent=2)
+
+    def export_to_xml(self, file_path, entries):
+        root = ET.Element("passwords")
+        for entry in entries:
+            entry_elem = ET.SubElement(root, "entry")
+            ET.SubElement(entry_elem, "Website").text = entry["website"]
+            ET.SubElement(entry_elem, "Username").text = entry["username"]
+            ET.SubElement(entry_elem, "Password").text = entry["password"]
+
+        tree = ET.ElementTree(root)
+        tree.write(file_path, encoding="utf-8", xml_declaration=True)
+
+    def import_data(self):
+        file_path, file_type = QFileDialog.getOpenFileName(
+            None,
+            "Import File",
+            "",
+            "CSV Files (*.csv);;JSON Files (*.json);;XML Files (*.xml)"
+        )
+
+        if not file_path:
+            return False
+
+        try:
+            if file_path.endswith('.csv'):
+                self.import_from_csv(file_path)
+            elif file_path.endswith('.json'):
+                self.import_from_json(file_path)
+            elif file_path.endswith('.xml'):
+                self.import_from_xml(file_path)
+            else:
+                raise ValueError("Unsupported file format")
+
+            QMessageBox.information(None, "Import Success", "Data imported successfully")
+            return True
+
+        except Exception as e:
+            QMessageBox.critical(None, "Import Failed", f"An error occurred: {str(e)}")
+            return False
+
+    def import_from_csv(self, file_path):
+        with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+            csv_reader = csv.DictReader(csvfile)
+            for row in csv_reader:
+                self.add_new_login(row['Website'], row['Username'], row['Password'])
+
+    def import_from_json(self, file_path):
+        with open(file_path, 'r', encoding='utf-8') as jsonfile:
+            data = json.load(jsonfile)
+            for entry in data:
+                self.add_new_login(entry['Website'], entry['Username'], entry['Password'])
+
+    def import_from_xml(self, file_path):
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+        for entry in root.findall('entry'):
+            website = entry.find('Website').text
+            username = entry.find('Username').text
+            password = entry.find('Password').text
+            self.add_new_login(website, username, password)
+
+    def backup_database(self):
+        if not self.db.isOpen():
+            QMessageBox.critical(None, "Backup Error", "Database is not open")
+            return False
+
+        backup_dir = QFileDialog.getExistingDirectory(None, "Select Backup Directory")
+        if not backup_dir:
+            return False
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"password_backup_{timestamp}.db"
+        backup_path = os.path.join(backup_dir, backup_filename)
+
+        try:
+            self.db.close()
+            shutil.copy2(self.db_name, backup_path)
+            self.db.open()
+            QMessageBox.information(None, "Backup Success", f"Database backed up to {backup_path}")
+            return True
+        except Exception as e:
+            QMessageBox.critical(None, "Backup Error", f"An error occurred: {str(e)}")
+            self.db.open()
+            return False
+
+    def restore_database(self):
+        if self.db.isOpen():
+            self.db.close()
+
+        backup_file, _ = QFileDialog.getOpenFileName(None, "Select Backup File", "", "Database Files (*.db)")
+        if not backup_file:
+            self.db.open()
+            return False
+
+        try:
+            shutil.copy2(backup_file, self.db_name)
+            self.db.open()
+            QMessageBox.information(None, "Restore Success", "Database restored successfully")
+            return True
+        except Exception as e:
+            QMessageBox.critical(None, "Restore Error", f"An error occurred: {str(e)}")
+            self.db.open()
             return False
 
     def close(self):
