@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QTableWidgetItem,
     QApplication,
-    QHBoxLayout,
+    QHBoxLayout, QMenu,
 )
 
 from app.ui.actions_tab import ActionsTab
@@ -108,12 +108,17 @@ class PasswordManager(QMainWindow):
 
         # Create Edit menu and add actions
         edit_menu = menubar.addMenu("Edit")
+        # Add edit actions here
 
         # Create View menu and add actions
         view_menu = menubar.addMenu("View")
-        view_menu.addAction(self.show_hide_passwords_actions)
+        view_menu.addAction(self.show_hide_passwords_action)
         view_menu.addAction(self.refresh_action)
-        view_menu.addAction(self.sort_action)
+
+        view_sort_sub_menu = QMenu("Sort", self)
+        view_menu.addMenu(view_sort_sub_menu)
+        view_sort_sub_menu.addAction(self.sort_by_username_action)
+        view_sort_sub_menu.addAction(self.sort_by_url_action)
 
         # Create Tool menu and add actions
         tool_menu = menubar.addMenu("Tools")
@@ -128,43 +133,106 @@ class PasswordManager(QMainWindow):
         settings_menu.addAction(self.user_guild_action)
         settings_menu.addAction(self.about_action)
 
-    # Create actions for menu items such as exit and export
     def create_actions(self):
         # File actions
-        self.import_passwords_action = QAction(QIcon(),"Import", self) # other sources or file formats
+        self.import_passwords_action = QAction(QIcon(), "Import", self)
         self.import_passwords_action.triggered.connect(self.db_manager.import_data)
-        self.export_passwords_action = QAction(QIcon(),"Export", self)
+        self.export_passwords_action = QAction(QIcon(), "Export", self)
         self.export_passwords_action.triggered.connect(self.db_manager.export_data)
 
-        self.backup_database_action = QAction(QIcon(),"Backup",self)
+        self.backup_database_action = QAction(QIcon(), "Backup", self)
         self.backup_database_action.triggered.connect(self.db_manager.backup_database)
-        self.restore_database_action = QAction(QIcon(),"Restore",self)
+        self.restore_database_action = QAction(QIcon(), "Restore", self)
         self.restore_database_action.triggered.connect(self.db_manager.restore_database)
 
-        self.exit_action = QAction(QIcon(), "Exit", self) # Exit
+        self.exit_action = QAction(QIcon(), "Exit", self)
         self.exit_action.setStatusTip("Exit the application")
         self.exit_action.triggered.connect(self.close)
 
         # View Actions
-        self.show_hide_passwords_actions = QAction(QIcon(), "Show/Hide Passwords",self)
-        self.refresh_action = QAction(QIcon(),"Refresh",self)
-        self.sort_action = QAction(QIcon(),"Sort By",self)
+        self.show_hide_passwords_action = QAction(QIcon(), "Show/Hide Passwords", self)
+        self.show_hide_passwords_action.triggered.connect(self.toggle_password_visibility)
+        self.show_hide_passwords_action.setCheckable(True)
+        self.refresh_action = QAction(QIcon(), "Refresh", self)
+        self.refresh_action.triggered.connect(self.update_table)
+
+        # Sort Actions
+
+        self.sort_by_username_action = QAction(QIcon(), "Sort by Username", self)
+        self.sort_by_username_action.triggered.connect(self.sort_by_username)
+
+        self.sort_by_url_action = QAction(QIcon(), "Sort by Website", self)
+        self.sort_by_url_action.triggered.connect(self.sort_by_website)
 
         # Tool Actions
-        self.password_strength_check_action = QAction(QIcon(),"Password Strength Checker",self)
-        self.duplicate_password_finder_action = QAction(QIcon(),"Duplicate Password Finder",self)
-        self.password_history_action = QAction(QIcon(),"Password History",self)
+        self.password_strength_check_action = QAction(QIcon(), "Password Strength Checker", self)
+        self.duplicate_password_finder_action = QAction(QIcon(), "Duplicate Password Finder", self)
+        self.password_history_action = QAction(QIcon(), "Password History", self)
 
-        self.generate_password_action = QAction(QIcon(),"Generate Password",self)
+        self.generate_password_action = QAction(QIcon(), "Generate Password", self)
         self.generate_password_action.setStatusTip("Open Password Generator")
         self.generate_password_action.triggered.connect(self.open_password_generator)
 
-        #Settings Actions
-        self.password_reset_action = QAction(QIcon(), "Reset Master Password", self)  # Password Reset
+        # Settings Actions
+        self.password_reset_action = QAction(QIcon(), "Reset Master Password", self)
         self.password_reset_action.triggered.connect(self.on_open_password_reset_clicked)
 
-        self.user_guild_action = QAction(QIcon(),"User Guild",self)
-        self.about_action = QAction(QIcon(),"About",self)
+        self.user_guild_action = QAction(QIcon(), "User Guide", self)
+        self.about_action = QAction(QIcon(), "About", self)
+
+    def sort_by_website(self):
+        sorted_entries = self.db_manager.sort_by_website()
+        self.update_table_with_entries(sorted_entries)
+
+    def sort_by_username(self):
+        sorted_entries = self.db_manager.sort_by_username()
+        self.update_table_with_entries(sorted_entries)
+
+    def update_table_with_entries(self, entries):
+        self.entry_table.setRowCount(0)
+        self.entry_table.setRowCount(len(entries))
+        self.id_map.clear()
+
+        is_visible = self.show_hide_passwords_action.isChecked()
+
+        for row, entry in enumerate(entries):
+            self.id_map[row] = entry["id"]
+            self.entry_table.setItem(row, 0, QTableWidgetItem(entry["website"]))
+            self.entry_table.setItem(row, 1, QTableWidgetItem(entry["username"]))
+
+            if is_visible:
+                self.entry_table.setItem(row, 2, QTableWidgetItem(entry["password"]))
+            else:
+                self.entry_table.setItem(row, 2, QTableWidgetItem("*" * len(entry["password"])))
+
+            actions_tab = ActionsTab(row)
+            actions_tab.view_clicked.connect(self.on_view_clicked)
+            actions_tab.edit_clicked.connect(self.on_edit_clicked)
+            actions_tab.delete_clicked.connect(self.on_delete_clicked)
+
+            self.entry_table.setCellWidget(row, 3, actions_tab)
+
+    def toggle_password_visibility(self):
+        is_visible = self.show_hide_passwords_action.isChecked()
+
+        if is_visible:
+            self.show_hide_passwords_action.setText("Hide Passwords")
+        else:
+            self.show_hide_passwords_action.setText("Show Passwords")
+
+        for row in range(self.entry_table.rowCount()):
+            password_item = self.entry_table.item(row, 2)
+            if password_item:
+                password_id = self.id_map.get(row)
+                if password_id is not None:
+                    if is_visible:
+                        # Fetch and show the actual password
+                        actual_password = self.db_manager.get_password(password_id)
+                        password_item.setText(actual_password)
+                    else:
+                        # Hide the password
+                        password_item.setText('*' * len(password_item.text()))
+
 
     """ Actions Tab """
 

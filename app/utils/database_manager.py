@@ -260,6 +260,52 @@ class DatabaseManager:
             self.db.open()
             return False
 
+    def sort_by_website(self, order="ASC"):
+        """
+        Sort the entries by website.
+        """
+        order = order.upper()
+        if order not in ["ASC", "DESC"]:
+            order = "ASC"
+
+        query = QSqlQuery(
+            f"SELECT id, website, username, encrypted_password FROM logins ORDER BY website {order}"
+        )
+        entries = []
+        while query.next():
+            entries.append(
+                {
+                    "id": query.value(0),
+                    "website": query.value(1),
+                    "username": query.value(2),
+                    "password": self.cipher.decrypt(query.value(3).encode()).decode(),
+                }
+            )
+        return entries
+
+    def sort_by_username(self, order="ASC"):
+        """
+        Sort the entries by username.
+        """
+        order = order.upper()
+        if order not in ["ASC", "DESC"]:
+            order = "ASC"
+
+        query = QSqlQuery(
+            f"SELECT id, website, username, encrypted_password FROM logins ORDER BY username {order}"
+        )
+        entries = []
+        while query.next():
+            entries.append(
+                {
+                    "id": query.value(0),
+                    "website": query.value(1),
+                    "username": query.value(2),
+                    "password": self.cipher.decrypt(query.value(3).encode()).decode(),
+                }
+            )
+        return entries
+
     def close(self):
         if self.db.isOpen():
             self.db.close()
