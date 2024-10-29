@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QMenu,
 )
 
+from app.ui.about_dialog import AboutDialog
 from app.ui.actions_tab import ActionsTab
 from app.ui.duplicate_password_dialog import DuplicatePasswordsDialog
 from app.ui.edit_password_dialog import EditPassword
@@ -134,6 +135,7 @@ class PasswordManager(QMainWindow):
         settings_menu.addAction(self.password_reset_action)
         settings_menu.addAction(self.user_guild_action)
         settings_menu.addAction(self.about_action)
+        settings_menu.triggered.connect(self.show_about_dialog)
 
     def create_actions(self):
         # File actions
@@ -277,6 +279,10 @@ class PasswordManager(QMainWindow):
                     QMessageBox.information(self, "No History", "No password history available for this entry.")
             else:
                 QMessageBox.warning(self, "No Selection", "Please select an entry to view its password history.")
+
+    def show_about_dialog(self):
+        dialog = AboutDialog(self)
+        dialog.exec()
 
     """ Actions Tab """
 
