@@ -1,8 +1,11 @@
 import string
 import random
 from PyQt6.QtWidgets import (QDialog, QGroupBox, QGridLayout, QLineEdit, QPushButton,
-                             QCheckBox, QSlider, QLabel, QVBoxLayout)
+                             QCheckBox, QSlider, QLabel, QVBoxLayout, QMessageBox)
 from PyQt6.QtCore import Qt
+
+from app.utils.database_manager import DatabaseManager
+
 
 class PasswordGenerationDialog(QDialog):
     def __init__(self, parent=None):
@@ -53,7 +56,7 @@ class PasswordGenerationDialog(QDialog):
         group_box.setLayout(layout)
         return group_box
 
-    def generate_password(self):
+    def generate_password(self, login_id=None):
         password_length = self.char_length.value()
 
         char_sets = [string.ascii_lowercase]
@@ -74,20 +77,29 @@ class PasswordGenerationDialog(QDialog):
         # Combine all sets
         all_chars = "".join(char_sets)
 
-        # Generate the main part of the password
-        main_password = "".join(
-            random.choice(all_chars)
-            for _ in range(password_length - len(required_chars))
-        )
+        max_attempts = 100  # Prevent infinite loop
+        for _ in range(max_attempts):
+            # Generate the main part of the password
+            main_password = "".join(
+                random.choice(all_chars)
+                for _ in range(password_length - len(required_chars))
+            )
 
-        # Combine and shuffle password
-        passw = "".join(required_chars + list(main_password))
-        passw_list = list(passw)
-        random.shuffle(passw_list)
-        final_password = "".join(passw_list)
+            # Combine and shuffle password
+            passw = "".join(required_chars + list(main_password))
+            passw_list = list(passw)
+            random.shuffle(passw_list)
+            final_password = "".join(passw_list)
 
-        self.password_field.setText(final_password)
+            # Check if the password has been used before
+            if login_id is None or not DatabaseManager().is_password_previously_used(login_id, final_password):
+                self.password_field.setText(final_password)
+                return final_password
 
+        # couldn't generate a unique password
+        QMessageBox.warning(self, "Password Generation Failed",
+                            "Unable to generate a unique password. Please try again or adjust the settings.")
+        return None
     def update_password_length(self, value):
         self.char_length_label.setText(f"Password Length: {value}")
 

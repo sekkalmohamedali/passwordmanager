@@ -34,7 +34,20 @@ class DatabaseManager:
                 username TEXT NOT NULL,
                 encrypted_password TEXT NOT NULL
             )
-        """
+            """
+        )
+
+        # Add a new table for password history
+        query.exec(
+            """
+            CREATE TABLE IF NOT EXISTS password_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                login_id INTEGER,
+                encrypted_password TEXT NOT NULL,
+                date_used DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (login_id) REFERENCES logins(id)
+            )
+            """
         )
 
     def initialize_encryption(self):
@@ -62,6 +75,20 @@ class DatabaseManager:
         query.addBindValue(website)
         query.addBindValue(username)
         query.addBindValue(encrypted_password)
+
+        if query.exec():
+            login_id = query.lastInsertId()
+            self.add_password_to_history(login_id, encrypted_password)
+            return True
+        return False
+
+    def add_password_to_history(self, login_id, encrypted_password):
+        query = QSqlQuery()
+        query.prepare(
+            "INSERT INTO password_history (login_id, encrypted_password) VALUES (?, ?)"
+        )
+        query.addBindValue(login_id)
+        query.addBindValue(encrypted_password)
         return query.exec()
 
     def delete_login(self, row_id):
@@ -76,7 +103,11 @@ class DatabaseManager:
         query.prepare("UPDATE logins SET encrypted_password = ? WHERE id = ?")
         query.addBindValue(encrypted_password)
         query.addBindValue(row_id)
-        return query.exec()
+
+        if query.exec():
+            self.add_password_to_history(row_id, encrypted_password)
+            return True
+        return False
 
     def load_table(self):
         query = QSqlQuery(
@@ -305,6 +336,76 @@ class DatabaseManager:
                 }
             )
         return entries
+
+    def is_password_previously_used(self, login_id, password):
+        encrypted_password = self.cipher.encrypt(password.encode()).decode()
+        query = QSqlQuery()
+        query.prepare(
+            "SELECT COUNT(*) FROM password_history WHERE login_id = ? AND encrypted_password = ?"
+        )
+        query.addBindValue(login_id)
+        query.addBindValue(encrypted_password)
+
+        if query.exec() and query.next():
+            return query.value(0) > 0
+        return False
+
+    def get_password_history(self, login_id):
+        self.cipher = Fernet(self.settings.value("password_key"))
+        query = QSqlQuery()
+        query.prepare("""
+            SELECT encrypted_password, date_used 
+            FROM password_history 
+            WHERE login_id = ? 
+            ORDER BY date_used DESC
+        """)
+        query.addBindValue(login_id)
+
+        passwords = []
+        if query.exec():
+            while query.next():
+                encrypted_password = query.value(0)
+                date_used = query.value(1)
+                decrypted_password = self.cipher.decrypt(encrypted_password.encode()).decode()
+                passwords.append((decrypted_password, date_used))
+
+        return passwords
+
+
+
+    def find_duplicate_passwords(self):
+            query = QSqlQuery()
+            query.exec("""
+                SELECT encrypted_password, COUNT(*) as count
+                FROM logins
+                GROUP BY encrypted_password
+                HAVING count > 1
+                ORDER BY count DESC
+            """)
+
+            duplicates = []
+            while query.next():
+                encrypted_password = query.value(0)
+                count = query.value(1)
+                decrypted_password = self.cipher.decrypt(encrypted_password.encode()).decode()
+
+                # Get the websites using this password
+                sub_query = QSqlQuery()
+                sub_query.prepare("SELECT website FROM logins WHERE encrypted_password = ?")
+                sub_query.addBindValue(encrypted_password)
+                sub_query.exec()
+
+                websites = []
+                while sub_query.next():
+                    websites.append(sub_query.value(0))
+
+                duplicates.append({
+                    'password': decrypted_password,
+                    'count': count,
+                    'websites': websites
+                })
+
+            return duplicates
 
     def close(self):
         if self.db.isOpen():

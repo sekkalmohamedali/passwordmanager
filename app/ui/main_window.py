@@ -25,9 +25,11 @@ from PyQt6.QtWidgets import (
 )
 
 from app.ui.actions_tab import ActionsTab
+from app.ui.duplicate_password_dialog import DuplicatePasswordsDialog
 from app.ui.edit_password_dialog import EditPassword
 from app.ui.new_entry_dialog import NewEntryDialog
 from app.ui.password_generator_dialog import PasswordGenerationDialog
+from app.ui.password_histroy_dialog import PasswordHistoryDialog
 from app.ui.reset_password_dialog import ResetPasswordDialog
 from app.utils.database_manager import DatabaseManager
 from app.utils.master_login import MasterLogin
@@ -136,13 +138,19 @@ class PasswordManager(QMainWindow):
     def create_actions(self):
         # File actions
         self.import_passwords_action = QAction(QIcon(), "Import", self)
+        self.import_passwords_action.setStatusTip("Import passwords from a file")
         self.import_passwords_action.triggered.connect(self.db_manager.import_data)
+
         self.export_passwords_action = QAction(QIcon(), "Export", self)
+        self.export_passwords_action.setStatusTip("Export passwords to a file")
         self.export_passwords_action.triggered.connect(self.db_manager.export_data)
 
         self.backup_database_action = QAction(QIcon(), "Backup", self)
+        self.backup_database_action.setStatusTip("Create a backup of the database")
         self.backup_database_action.triggered.connect(self.db_manager.backup_database)
+
         self.restore_database_action = QAction(QIcon(), "Restore", self)
+        self.restore_database_action.setStatusTip("Restore the database from a backup")
         self.restore_database_action.triggered.connect(self.db_manager.restore_database)
 
         self.exit_action = QAction(QIcon(), "Exit", self)
@@ -151,23 +159,34 @@ class PasswordManager(QMainWindow):
 
         # View Actions
         self.show_hide_passwords_action = QAction(QIcon(), "Show/Hide Passwords", self)
+        self.show_hide_passwords_action.setStatusTip("Toggle password visibility")
         self.show_hide_passwords_action.triggered.connect(self.toggle_password_visibility)
         self.show_hide_passwords_action.setCheckable(True)
+
         self.refresh_action = QAction(QIcon(), "Refresh", self)
+        self.refresh_action.setStatusTip("Refresh the password list")
         self.refresh_action.triggered.connect(self.update_table)
 
         # Sort Actions
-
         self.sort_by_username_action = QAction(QIcon(), "Sort by Username", self)
+        self.sort_by_username_action.setStatusTip("Sort the list by username")
         self.sort_by_username_action.triggered.connect(self.sort_by_username)
 
         self.sort_by_url_action = QAction(QIcon(), "Sort by Website", self)
+        self.sort_by_url_action.setStatusTip("Sort the list by website")
         self.sort_by_url_action.triggered.connect(self.sort_by_website)
 
         # Tool Actions
         self.password_strength_check_action = QAction(QIcon(), "Password Strength Checker", self)
+        self.password_strength_check_action.setStatusTip("Check the strength of your passwords")
+
         self.duplicate_password_finder_action = QAction(QIcon(), "Duplicate Password Finder", self)
+        self.duplicate_password_finder_action.setStatusTip("Find duplicate passwords in your list")
+        self.duplicate_password_finder_action.triggered.connect(self.show_duplicate_passwords)
+
         self.password_history_action = QAction(QIcon(), "Password History", self)
+        self.password_history_action.setStatusTip("View password change history")
+        self.password_history_action.triggered.connect(self.show_password_history)
 
         self.generate_password_action = QAction(QIcon(), "Generate Password", self)
         self.generate_password_action.setStatusTip("Open Password Generator")
@@ -175,10 +194,14 @@ class PasswordManager(QMainWindow):
 
         # Settings Actions
         self.password_reset_action = QAction(QIcon(), "Reset Master Password", self)
+        self.password_reset_action.setStatusTip("Change your master password")
         self.password_reset_action.triggered.connect(self.on_open_password_reset_clicked)
 
         self.user_guild_action = QAction(QIcon(), "User Guide", self)
+        self.user_guild_action.setStatusTip("View the user guide")
+
         self.about_action = QAction(QIcon(), "About", self)
+        self.about_action.setStatusTip("Show information about the application")
 
     def sort_by_website(self):
         sorted_entries = self.db_manager.sort_by_website()
@@ -233,6 +256,27 @@ class PasswordManager(QMainWindow):
                         # Hide the password
                         password_item.setText('*' * len(password_item.text()))
 
+    def show_duplicate_passwords(self):
+        duplicates = self.db_manager.find_duplicate_passwords()
+        if duplicates:
+            dialog = DuplicatePasswordsDialog(duplicates)
+            dialog.exec()
+        else:
+            QMessageBox.information(self, "No Duplicates", "No duplicate passwords found.")
+
+    def show_password_history(self):
+            current_row = self.entry_table.currentRow()
+            if current_row >= 0:
+                login_id = self.id_map[current_row]
+                passwords = self.db_manager.get_password_history(login_id)
+
+                if passwords:
+                    dialog = PasswordHistoryDialog(passwords)
+                    dialog.exec()
+                else:
+                    QMessageBox.information(self, "No History", "No password history available for this entry.")
+            else:
+                QMessageBox.warning(self, "No Selection", "Please select an entry to view its password history.")
 
     """ Actions Tab """
 
