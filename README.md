@@ -36,7 +36,7 @@ Run the main script to start the application:
 
 ``python main.py``
 
-### **Creating a Master Password
+### Creating a Master Password
 If this is your first time running the application, you will be prompted to create a master password.
 Choose a strong and memorable password, as this will be required to access your stored passwords in future sessions.
 ### Logging In
