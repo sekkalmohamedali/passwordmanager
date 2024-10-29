@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 
 from app.utils.database_manager import DatabaseManager
 
+
 class NewEntryDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -93,7 +94,9 @@ class NewEntryDialog(QDialog):
         layout.addWidget(self.special_char, 3, 0, 1, 1, Qt.AlignmentFlag.AlignLeft)
 
         layout.addWidget(self.char_length, 1, 1, 2, 2)
-        layout.addWidget(self.char_length_label, 3, 1, 1, 2, Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(
+            self.char_length_label, 3, 1, 1, 2, Qt.AlignmentFlag.AlignCenter
+        )
 
         group_box.setLayout(layout)
         return group_box
@@ -102,40 +105,40 @@ class NewEntryDialog(QDialog):
         self.char_length_label.setText(f"Password Length: {value}")
 
     def generate_password(self):
-            password_length = self.char_length.value()
+        password_length = self.char_length.value()
 
-            char_sets = [string.ascii_lowercase]
-            required_chars = []
+        char_sets = [string.ascii_lowercase]
+        required_chars = []
 
-            if self.alpha_char.checkState() == Qt.CheckState.Checked:
-                char_sets.append(string.ascii_uppercase)
-                required_chars.append(random.choice(string.ascii_uppercase))
+        if self.alpha_char.checkState() == Qt.CheckState.Checked:
+            char_sets.append(string.ascii_uppercase)
+            required_chars.append(random.choice(string.ascii_uppercase))
 
-            if self.numerical_char.checkState() == Qt.CheckState.Checked:
-                char_sets.append(string.digits)
-                required_chars.append(random.choice(string.digits))
+        if self.numerical_char.checkState() == Qt.CheckState.Checked:
+            char_sets.append(string.digits)
+            required_chars.append(random.choice(string.digits))
 
-            if self.special_char.checkState() == Qt.CheckState.Checked:
-                char_sets.append(string.punctuation)
-                required_chars.append(random.choice(string.punctuation))
+        if self.special_char.checkState() == Qt.CheckState.Checked:
+            char_sets.append(string.punctuation)
+            required_chars.append(random.choice(string.punctuation))
 
-            # Combine all sets
-            all_chars = "".join(char_sets)
+        # Combine all sets
+        all_chars = "".join(char_sets)
 
-            # Generate the main part of the password
-            main_password = "".join(
-                random.choice(all_chars)
-                for _ in range(password_length - len(required_chars))
-            )
+        # Generate the main part of the password
+        main_password = "".join(
+            random.choice(all_chars)
+            for _ in range(password_length - len(required_chars))
+        )
 
-            # Combine and shuffle password
-            passw = "".join(required_chars + list(main_password))
-            passw_list = list(passw)
-            random.shuffle(passw_list)
-            final_password = "".join(passw_list)
+        # Combine and shuffle password
+        passw = "".join(required_chars + list(main_password))
+        passw_list = list(passw)
+        random.shuffle(passw_list)
+        final_password = "".join(passw_list)
 
-            self.password_field.setText(final_password)
-            self.entry_password.setText(final_password)
+        self.password_field.setText(final_password)
+        self.entry_password.setText(final_password)
 
     def save_new_entry(self):
         url = self.entry_url.text().strip()

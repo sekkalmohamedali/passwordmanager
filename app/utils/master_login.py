@@ -26,7 +26,7 @@ class MasterLogin:
         return key == stored_key
 
     def password_reset(self, old_password, new_password):
-        #Check if the old password is correct
+        # Check if the old password is correct
         if not self.check_password(old_password):
             return False
 

@@ -1,4 +1,12 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QScrollArea, QWidget
+from PyQt6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QWidget,
+)
+
 
 class DuplicatePasswordsDialog(QDialog):
     def __init__(self, duplicates):
@@ -23,7 +31,7 @@ class DuplicatePasswordsDialog(QDialog):
         for dup in self.duplicates:
             password_label = QLabel(f"Password: {dup['password']}")
             count_label = QLabel(f"Used {dup['count']} times")
-            websites_label = QLabel("Websites: " + ", ".join(dup['websites']))
+            websites_label = QLabel("Websites: " + ", ".join(dup["websites"]))
             scroll_layout.addWidget(password_label)
             scroll_layout.addWidget(count_label)
             scroll_layout.addWidget(websites_label)

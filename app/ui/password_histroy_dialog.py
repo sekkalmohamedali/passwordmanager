@@ -1,19 +1,27 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QScrollArea, QWidget
+from PyQt6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QWidget,
+)
 from PyQt6.QtCore import Qt
 
+
 class PasswordHistoryDialog(QDialog):
-    def __init__(self, passwords,parent=None):
+    def __init__(self, passwords, parent=None):
         super().__init__(parent)
         self.passwords = passwords
-        
+
         self.init_ui()
-        
-    def init_ui(self):    
+
+    def init_ui(self):
         self.setWindowTitle("Password History")
         self.setMinimumWidth(300)
         self.setMinimumHeight(200)
         self.setup_layout()
-        
+
     def setup_layout(self):
 
         layout = QVBoxLayout()

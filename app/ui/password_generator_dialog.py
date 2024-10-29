@@ -1,7 +1,17 @@
 import string
 import random
-from PyQt6.QtWidgets import (QDialog, QGroupBox, QGridLayout, QLineEdit, QPushButton,
-                             QCheckBox, QSlider, QLabel, QVBoxLayout, QMessageBox)
+from PyQt6.QtWidgets import (
+    QDialog,
+    QGroupBox,
+    QGridLayout,
+    QLineEdit,
+    QPushButton,
+    QCheckBox,
+    QSlider,
+    QLabel,
+    QVBoxLayout,
+    QMessageBox,
+)
 from PyQt6.QtCore import Qt
 
 from app.utils.database_manager import DatabaseManager
@@ -51,7 +61,9 @@ class PasswordGenerationDialog(QDialog):
         layout.addWidget(self.special_char, 3, 0, 1, 1, Qt.AlignmentFlag.AlignLeft)
 
         layout.addWidget(self.char_length, 1, 1, 2, 2)
-        layout.addWidget(self.char_length_label, 3, 1, 1, 2, Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(
+            self.char_length_label, 3, 1, 1, 2, Qt.AlignmentFlag.AlignCenter
+        )
 
         group_box.setLayout(layout)
         return group_box
@@ -92,14 +104,19 @@ class PasswordGenerationDialog(QDialog):
             final_password = "".join(passw_list)
 
             # Check if the password has been used before
-            if login_id is None or not DatabaseManager().is_password_previously_used(login_id, final_password):
+            if login_id is None or not DatabaseManager().is_password_previously_used(
+                login_id, final_password
+            ):
                 self.password_field.setText(final_password)
                 return final_password
 
         # couldn't generate a unique password
-        QMessageBox.warning(self, "Password Generation Failed",
-                            "Unable to generate a unique password. Please try again or adjust the settings.")
+        QMessageBox.warning(
+            self,
+            "Password Generation Failed",
+            "Unable to generate a unique password. Please try again or adjust the settings.",
+        )
         return None
+
     def update_password_length(self, value):
         self.char_length_label.setText(f"Password Length: {value}")
-

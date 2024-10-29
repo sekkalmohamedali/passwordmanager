@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayo
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 
+
 class AboutDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,7 +35,9 @@ class AboutDialog(QDialog):
         main_layout.addWidget(description)
 
         # License Information
-        license_info = QLabel("Licensed under the terms of the GNU General Public License v3.0.")
+        license_info = QLabel(
+            "Licensed under the terms of the GNU General Public License v3.0."
+        )
         license_info.setWordWrap(True)
         license_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(license_info)

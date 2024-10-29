@@ -29,7 +29,6 @@ class ResetPasswordDialog(QDialog):
         self.new_password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.new_password_confirm_input.setEchoMode(QLineEdit.EchoMode.Password)
 
-
         self.create_button = QPushButton("Reset Password")
         self.create_button.clicked.connect(self.reset_password)
 
@@ -37,9 +36,9 @@ class ResetPasswordDialog(QDialog):
         layout.addWidget(self.old_password_input, 0, 1, 1, 2)
         layout.addWidget(self.new_password_label, 1, 0)
         layout.addWidget(self.new_password_input, 1, 1, 1, 2)
-        layout.addWidget(self.new_password_confirm_label, 2,0)
+        layout.addWidget(self.new_password_confirm_label, 2, 0)
         layout.addWidget(self.new_password_confirm_input, 2, 1, 1, 2)
-        layout.addWidget(self.create_button,3,0,1,3)
+        layout.addWidget(self.create_button, 3, 0, 1, 3)
 
         self.setLayout(layout)
 
@@ -53,9 +52,13 @@ class ResetPasswordDialog(QDialog):
         elif new_password != new_confirm:
             QMessageBox.warning(self, "Error", "Passwords do not match")
         elif len(new_password) < 8:
-            QMessageBox.warning(self, "Error", "Password must be at least 8 characters long")
+            QMessageBox.warning(
+                self, "Error", "Password must be at least 8 characters long"
+            )
         else:
-            success = self.password_manager.password_reset_action(old_password, new_password)
+            success = self.password_manager.password_reset_action(
+                old_password, new_password
+            )
             if success:
                 QMessageBox.information(self, "Success", "Password reset successfully")
                 self.accept()
