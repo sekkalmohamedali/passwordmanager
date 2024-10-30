@@ -1,5 +1,3 @@
-import time
-
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
     QDialog,
@@ -9,8 +7,8 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QGridLayout,
 )
-
 from app.utils.database_manager import DatabaseManager
+from app.utils.password_strength_checker import check_password_strength
 
 
 class EditPassword(QDialog):
@@ -31,6 +29,9 @@ class EditPassword(QDialog):
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_confirm_input.setEchoMode(QLineEdit.EchoMode.Password)
 
+        self.password_input.textChanged.connect(self.check_password)
+        self.password_strength_label = QLabel()
+
         self.confirm_button = QPushButton("Confirm")
         self.confirm_button.clicked.connect(self.change_password)
 
@@ -38,15 +39,36 @@ class EditPassword(QDialog):
         layout.addWidget(self.password_input, 0, 1, 1, 2)
         layout.addWidget(self.password_confirm_label, 1, 0)
         layout.addWidget(self.password_confirm_input, 1, 1, 1, 2)
+        layout.addWidget(QLabel("Password Strength:"), 2, 0)
+        layout.addWidget(self.password_strength_label, 2, 1, 1, 2)
+        layout.addWidget(self.confirm_button, 3, 1)
 
-        layout.addWidget(self.confirm_button, 2, 1)
         self.setLayout(layout)
+
+    def check_password(self):
+        password = self.password_input.text()
+        strength, color, _ = check_password_strength(password)
+        self.password_strength_label.setText(strength)
+        self.password_strength_label.setStyleSheet(
+            f"color: {color}; font-weight: bold;"
+        )
 
     def change_password(self):
         if self.pass_check():
-            DatabaseManager().edit_login_password(
-                self.row, self.password_confirm_input.text()
-            )
+            password = self.password_confirm_input.text()
+            strength, _, feedback = check_password_strength(password)
+
+            if strength in ["Very Weak", "Weak"]:
+                reply = QMessageBox.question(
+                    self,
+                    "Weak Password",
+                    f"Your password is {strength}. Do you want to continue?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
+                if reply == QMessageBox.StandardButton.No:
+                    return
+
+            DatabaseManager().edit_login_password(self.row, password)
             self.confirm_button.setText("Success")
             QTimer.singleShot(2000, self.close)
 

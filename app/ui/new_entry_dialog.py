@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.utils.database_manager import DatabaseManager
+from app.utils.password_strength_checker import check_password_strength
 
 
 class NewEntryDialog(QDialog):
@@ -38,12 +39,15 @@ class NewEntryDialog(QDialog):
         self.entry_url = QLineEdit()
         self.entry_username = QLineEdit()
         self.entry_password = QLineEdit()
+        self.entry_password.textChanged.connect(self.check_password)
 
         form_layout.addRow("Website/URL:", self.entry_url)
         form_layout.addRow("Username/Email:", self.entry_username)
         form_layout.addRow("Password:", self.entry_password)
 
-        # Create password generation section (initially hidden)
+        self.password_strength_label = QLabel()
+        form_layout.addRow("Password Strength:", self.password_strength_label)
+
         self.password_generation_section = self.create_password_generation_section()
 
         btn_layout = QHBoxLayout()
@@ -140,6 +144,14 @@ class NewEntryDialog(QDialog):
         self.password_field.setText(final_password)
         self.entry_password.setText(final_password)
 
+    def check_password(self):
+        password = self.entry_password.text()
+        strength, color, _ = check_password_strength(password)
+        self.password_strength_label.setText(strength)
+        self.password_strength_label.setStyleSheet(
+            f"color: {color}; font-weight: bold;"
+        )
+
     def save_new_entry(self):
         url = self.entry_url.text().strip()
         username = self.entry_username.text().strip()
@@ -153,13 +165,25 @@ class NewEntryDialog(QDialog):
             )
             return
 
+        strength, _, feedback = check_password_strength(password)
+
+        if strength in ["Very Weak", "Weak"]:
+            reply = QMessageBox.question(
+                self,
+                "Weak Password",
+                f"Your password is {strength}. Do you want to continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
         try:
             if self.db_manager.add_new_login(url, username, password):
                 QMessageBox.information(
                     self, "Success", "Password entry saved successfully."
                 )
                 self.close()
-                self.parent.update_table()
+                self.parent.update_table_with_entries()
             else:
                 QMessageBox.warning(
                     self,

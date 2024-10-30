@@ -66,6 +66,9 @@ class Actions:
         self.password_strength_check_action.setStatusTip(
             "Check the strength of your passwords"
         )
+        self.password_strength_check_action.triggered.connect(
+            self.main_window.show_password_strength_checker
+        )
 
         self.duplicate_password_finder_action = QAction(
             QIcon(), "Duplicate Password Finder", self.main_window

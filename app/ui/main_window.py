@@ -22,6 +22,7 @@ from app.ui.edit_password_dialog import EditPassword
 from app.ui.new_entry_dialog import NewEntryDialog
 from app.ui.password_generator_dialog import PasswordGenerationDialog
 from app.ui.password_histroy_dialog import PasswordHistoryDialog
+from app.ui.password_strength_checker_dialog import PasswordStrengthCheckerDialog
 from app.ui.reset_password_dialog import ResetPasswordDialog
 from app.ui.user_guide_dialog import UserGuideDialog
 from app.utils.actions import Actions
@@ -95,6 +96,7 @@ class PasswordManager(QMainWindow):
         layout = QHBoxLayout()
 
         self.search_input = QLineEdit("Search for a specific login")
+        self.search_input.textChanged.connect(self.filter_passwords)
         self.create_new_entry_button = QPushButton("+")
         self.create_new_entry_button.clicked.connect(self.on_new_entry_clicked)
 
@@ -123,6 +125,17 @@ class PasswordManager(QMainWindow):
         return self.entry_table
 
     """ Table Management Methods """
+
+    def filter_passwords(self):
+        search_text = self.search_input.text().lower()
+        for row in range(self.entry_table.rowCount()):
+            match = False
+            for column in range(self.entry_table.columnCount()):
+                item = self.entry_table.item(row, column)
+                if item and search_text in item.text().lower():
+                    match = True
+                    break
+            self.entry_table.setRowHidden(row, not match)
 
     def update_table_with_entries(self, entries=None):
         if entries is None:
@@ -290,4 +303,8 @@ class PasswordManager(QMainWindow):
     def on_open_password_reset_clicked(self):
         master_login = MasterLogin()
         dialog = ResetPasswordDialog(master_login, self)
+        dialog.exec()
+
+    def show_password_strength_checker(self):
+        dialog = PasswordStrengthCheckerDialog(self)
         dialog.exec()
