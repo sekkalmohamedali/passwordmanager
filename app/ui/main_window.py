@@ -30,12 +30,14 @@ from app.utils.actions import Actions
 from app.utils.database_manager import DatabaseManager
 from app.utils.master_login import MasterLogin
 from app.utils.observer import DatabaseObserver, DatabaseEvent
+from app.utils.database_proxy import DatabaseProxy  # Import DatabaseProxy
 
 
 class PasswordManager(QMainWindow, DatabaseObserver):
     def __init__(self, db_manager=None):
         super().__init__()
         self.db_manager = db_manager if db_manager else DatabaseManager()
+        self.db_proxy = DatabaseProxy(self.db_manager)  # Add proxy
         self.actions = Actions(self, self.db_manager)
         self.setup_main_window()
         self.setup_menu_bar()
@@ -211,6 +213,8 @@ class PasswordManager(QMainWindow, DatabaseObserver):
     # Open a dialog to edit an existing password entry.
     def on_edit_clicked(self, row):
         db_id = self.id_map[row]
+        # Create backup before editing
+        self.db_manager.create_backup(db_id)
         dialog = EditPassword(db_id, self)  # Pass self as parent
         if dialog.exec():
             self.update_table_with_entries()
@@ -235,12 +239,11 @@ class PasswordManager(QMainWindow, DatabaseObserver):
     # Display the password in plain text temporarily when view action is clicked.
     def on_view_clicked(self, row):
         db_id = self.id_map[row]
-        password = self.db_manager.get_password(db_id)
+        # Use proxy instead of direct db_manager access
+        password = self.db_proxy.get_password(db_id)
         if password:
             self.entry_table.setItem(row, 2, QTableWidgetItem(password))
             QTimer.singleShot(5000, lambda r=row: self.mask_password(r))
-
-            # QMessageBox.information(self, "View Password", f"Password: {password}")
         else:
             QMessageBox.warning(self, "Error", "Failed to retrieve password.")
 

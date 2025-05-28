@@ -12,6 +12,8 @@ from PyQt6.QtSql import QSqlQuery, QSqlDatabase
 from app.utils.observer import DatabaseSubject, DatabaseEvent
 from app.utils.encryption_strategies import EncryptionStrategy, FernetEncryptionStrategy
 from app.utils.decorator_password_strength_checker import check_password_strength
+from app.utils.password_memento import PasswordEntryMemento, PasswordEntryCaretaker
+from datetime import datetime
 
 
 class DatabaseManager(DatabaseSubject):
@@ -37,6 +39,8 @@ class DatabaseManager(DatabaseSubject):
             except Exception as e:
                 print(f"Error initializing encryption key: {str(e)}")
                 raise
+
+        self.caretaker = PasswordEntryCaretaker()
 
     def create_table(self):
         query = QSqlQuery()
@@ -296,29 +300,33 @@ class DatabaseManager(DatabaseSubject):
             self.add_new_login(website, username, password)
 
     def backup_database(self):
+        """Manual backup method"""
         if not self.db.isOpen():
-            QMessageBox.critical(None, "Backup Error", "Database is not open")
+            print("Database is not open")
             return False
-
-        backup_dir = QFileDialog.getExistingDirectory(None, "Select Backup Directory")
-        if not backup_dir:
-            return False
-
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_filename = f"password_backup_{timestamp}.db"
-        backup_path = os.path.join(backup_dir, backup_filename)
 
         try:
+            backup_dir = "backups"
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = os.path.join(backup_dir, f"password_backup_{timestamp}.db")
+            
+            # Close connection temporarily
             self.db.close()
+            
+            # Create backup
             shutil.copy2(self.db_name, backup_path)
+            
+            # Reopen database
             self.db.open()
-            QMessageBox.information(
-                None, "Backup Success", f"Database backed up to {backup_path}"
-            )
+            
+            print(f"Manual backup created successfully at: {backup_path}")
             return True
+            
         except Exception as e:
-            QMessageBox.critical(None, "Backup Error", f"An error occurred: {str(e)}")
-            self.db.open()
+            print(f"Manual backup failed: {str(e)}")
             return False
 
     def restore_database(self):
@@ -611,23 +619,77 @@ class DatabaseManager(DatabaseSubject):
     def _create_backup(self) -> bool:
         """Create backup before re-encryption"""
         try:
-            print("Creating database backup...")
-            backup_dir = os.path.join("E:", "s8", "design_patterns", "passwordmanager", "backups")
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_path = os.path.join(backup_dir, f"pre_encryption_change_{timestamp}.db")
+            backup_dir = "backups"
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
             
-            print(f"Attempting to create backup at: {backup_path}")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = os.path.join(backup_dir, f"password_backup_{timestamp}.db")
             
-            # Close connection temporarily
-            self.db.close()
+            # Close database connection before backup
+            if self.db.isOpen():
+                self.db.close()
+            
+            # Create backup
             shutil.copy2(self.db_name, backup_path)
+            
+            # Reopen database
             self.db.open()
             
             print(f"Backup created successfully at: {backup_path}")
             return True
+            
         except Exception as e:
-            error_msg = f"Backup creation failed: {str(e)}"
-            print(error_msg)
-            self.db.open()  # Ensure database is reopened
+            print(f"Backup creation failed: {str(e)}")
             return False
+
+    def create_backup(self, entry_id: int) -> None:
+        """Creates a backup of the current entry state"""
+        entry = self.get_entry(entry_id)
+        if entry:
+            memento = PasswordEntryMemento(
+                state=entry,
+                timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+            self.caretaker.add_memento(memento)
+            self.notify_observers(DatabaseEvent.BACKUP_CREATED, {"entry_id": entry_id})
+
+    def restore_from_backup(self, memento: PasswordEntryMemento) -> bool:
+        """Restores an entry from a backup"""
+        try:
+            state = memento.state
+            self.update_entry(
+                state["id"],
+                state["website"],
+                state["username"],
+                state["password"]
+            )
+            self.notify_observers(DatabaseEvent.DATABASE_RESTORED, {"entry_id": state["id"]})
+            return True
+        except Exception as e:
+            print(f"Restore failed: {e}")
+            return False
+
+    def get_entry(self, entry_id: int) -> dict:
+        """Get a single entry from the database by ID"""
+        try:
+            query = QSqlQuery()
+            query.prepare("""
+                SELECT id, website, username, password 
+                FROM passwords 
+                WHERE id = ?
+            """)
+            query.addBindValue(entry_id)
+            
+            if query.exec() and query.next():
+                return {
+                    "id": query.value(0),
+                    "website": query.value(1),
+                    "username": query.value(2),
+                    "password": self.decrypt_password(query.value(3))
+                }
+            return None
+        except Exception as e:
+            print(f"Error getting entry: {e}")
+            return None
 
