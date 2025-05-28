@@ -24,7 +24,7 @@ class AboutDialog(QDialog):
         main_layout.addWidget(app_name, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Version
-        version = QLabel("Version 1.0.0")
+        version = QLabel("")
         version.setFont(QFont("Arial", 10))
         main_layout.addWidget(version, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -36,14 +36,14 @@ class AboutDialog(QDialog):
 
         # License Information
         license_info = QLabel(
-            "Licensed under the terms of the GNU General Public License v3.0."
+            ""
         )
         license_info.setWordWrap(True)
         license_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(license_info)
 
         # Author Information
-        author_info = QLabel("© 2024 Mckenzie Turner - Open Source")
+        author_info = QLabel("Developed by Mohamed Ali Sekkal")
         author_info.setWordWrap(True)
         author_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(author_info)
