@@ -44,5 +44,5 @@ class CreatePasswordDialog(QDialog):
                 self, "Error", "Password must be at least 8 characters long"
             )
         else:
-            self.password_manager.set_password(password)
+            self.password_manager.create_password(password)
             self.accept()

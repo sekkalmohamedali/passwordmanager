@@ -16,15 +16,21 @@ class MasterLogin:
 
     def create_password(self, password):
         """Create new master password"""
-        salt = os.urandom(32)
-        key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000)
+        try:
+            salt = os.urandom(32)
+            key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000)
 
-        self.settings.setValue("password_salt", salt)
-        self.settings.setValue("password_key", key)
+            # Store both salt and key
+            self.settings.setValue("password_salt", salt)
+            self.settings.setValue("password_key", key)
+            self.settings.setValue("master_key", key)  # Add this line
 
-        if self.db_manager:
-            self.db_manager.set_encryption_key(key)
-        return True
+            if self.db_manager:
+                self.db_manager.set_encryption_key(key)
+            return True
+        except Exception as e:
+            print(f"Error creating password: {str(e)}")
+            return False
 
     def check_password(self, password):
         stored_salt = self.settings.value("password_salt")

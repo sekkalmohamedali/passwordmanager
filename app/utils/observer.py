@@ -9,6 +9,11 @@ class DatabaseEvent(Enum):
     ENTRY_DELETED = auto()
     DATABASE_IMPORTED = auto()
     DATABASE_ENCRYPTED = auto()
+     # New events to add
+    PASSWORD_STRENGTH_CHANGED = auto()
+    ENCRYPTION_STRATEGY_CHANGED = auto()
+    BACKUP_CREATED = auto()
+    DATABASE_RESTORED = auto()
 
 class DatabaseObserver:
     """Interface for database observers"""

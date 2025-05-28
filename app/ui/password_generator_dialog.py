@@ -15,11 +15,13 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from app.utils.database_manager import DatabaseManager
+from app.utils.decorator_password_strength_checker import check_password_strength  # Add this import
 
 
 class PasswordGenerationDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, db_manager=None):
         super().__init__(parent)
+        self.db_manager = db_manager
         self.setWindowTitle("Password Generation")
         self.setModal(True)
 
@@ -52,6 +54,12 @@ class PasswordGenerationDialog(QDialog):
         self.char_length_label = QLabel("Password Length: 12")
         self.char_length.valueChanged.connect(self.update_password_length)
 
+        # Add strength indicator labels
+        self.strength_label = QLabel("Strength: ")
+        self.strength_result = QLabel("")
+        self.strength_result.setStyleSheet("font-weight: bold;")
+        self.feedback_label = QLabel("")
+
         # Layout
         layout.addWidget(self.password_field, 0, 0, 1, 2)
         layout.addWidget(self.generate_password_btn, 0, 2)
@@ -64,6 +72,21 @@ class PasswordGenerationDialog(QDialog):
         layout.addWidget(
             self.char_length_label, 3, 1, 1, 2, Qt.AlignmentFlag.AlignCenter
         )
+
+        layout.addWidget(self.strength_label, 4, 0, 1, 1)
+        layout.addWidget(self.strength_result, 4, 1, 1, 1)
+        layout.addWidget(self.feedback_label, 5, 0, 1, 3)
+
+        # Add spacing
+        layout.setVerticalSpacing(10)
+        layout.setHorizontalSpacing(10)
+
+        # Style the labels
+        self.strength_label.setStyleSheet("font-weight: bold;")
+        self.feedback_label.setStyleSheet("color: #666666;")
+
+        # Add some margins to the group box
+        group_box.setContentsMargins(20, 20, 20, 20)
 
         group_box.setLayout(layout)
         return group_box
@@ -104,10 +127,13 @@ class PasswordGenerationDialog(QDialog):
             final_password = "".join(passw_list)
 
             # Check if the password has been used before
-            if login_id is None or not DatabaseManager().is_password_previously_used(
-                login_id, final_password
-            ):
+            if login_id is None or (self.db_manager and not self.db_manager.is_password_previously_used(login_id, final_password)):
                 self.password_field.setText(final_password)
+                # Add strength check
+                strength, color, feedback = check_password_strength(final_password)
+                self.strength_result.setText(strength)
+                self.strength_result.setStyleSheet(f"color: {color}; font-weight: bold;")
+                self.feedback_label.setText("Feedback: " + ", ".join(feedback) if feedback else "Excellent password!")
                 return final_password
 
         # couldn't generate a unique password

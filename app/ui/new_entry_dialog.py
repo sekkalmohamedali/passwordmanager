@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.utils.database_manager import DatabaseManager
-from app.utils.password_strength_checker import check_password_strength
+from app.utils.decorator_password_strength_checker import check_password_strength
 
 
 class NewEntryDialog(QDialog):
@@ -179,18 +179,12 @@ class NewEntryDialog(QDialog):
 
         try:
             if self.db_manager.add_new_login(url, username, password):
-                QMessageBox.information(
-                    self, "Success", "Password entry saved successfully."
-                )
+                QMessageBox.information(self, "Success", "Password entry saved successfully.")
                 self.close()
+                # This triggers the observer pattern
                 self.parent.update_table_with_entries()
             else:
-                QMessageBox.warning(
-                    self,
-                    "Database Error",
-                    "Failed to save password entry. Please try again.",
-                )
+                QMessageBox.warning(self, "Database Error", 
+                    "Failed to save password entry. Please try again.")
         except Exception as e:
-            QMessageBox.critical(
-                self, "Error", f"An unexpected error occurred: {str(e)}"
-            )
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")

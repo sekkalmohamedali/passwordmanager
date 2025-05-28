@@ -66,3 +66,6 @@ This project is open source and available under the MIT License.
 - cryptography for secure encryption.
 ### Support
 For support, please open an issue in the GitHub repository.
+#### to restart
+del password.db
+reg delete HKCU\Software\PyQtPasswordManager /f

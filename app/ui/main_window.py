@@ -1,4 +1,5 @@
 from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QAction  # Change this import
 from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QMenu,
+    QLabel,
 )
 
 from app.ui.about_dialog import AboutDialog
@@ -30,7 +32,7 @@ from app.utils.master_login import MasterLogin
 from app.utils.observer import DatabaseObserver, DatabaseEvent
 
 
-class PasswordManager(QMainWindow):
+class PasswordManager(QMainWindow, DatabaseObserver):
     def __init__(self, db_manager=None):
         super().__init__()
         self.db_manager = db_manager if db_manager else DatabaseManager()
@@ -38,6 +40,10 @@ class PasswordManager(QMainWindow):
         self.setup_main_window()
         self.setup_menu_bar()
         self.db_manager.attach(self)  # Register as observer
+        
+        # Add status bar (keep only this line)
+        self.status_bar = self.statusBar()
+        self.setup_strength_indicator()
 
     def initialize_ui(self):
         self.setWindowTitle("PyQt Password Manager")
@@ -88,6 +94,7 @@ class PasswordManager(QMainWindow):
 
         # Settings menu
         settings_menu = menubar.addMenu("Settings")
+        settings_menu.addAction(self.actions.encryption_settings_action)  # Add this line
         settings_menu.addAction(self.actions.password_reset_action)
         settings_menu.addAction(self.actions.user_guide_action)
         settings_menu.addAction(self.actions.about_action)
@@ -277,7 +284,7 @@ class PasswordManager(QMainWindow):
 
     # Open password generator dialog
     def open_password_generator(self):
-        dialog = PasswordGenerationDialog(self)
+        dialog = PasswordGenerationDialog(self, self.db_manager)
         dialog.exec()
 
     # Open dialog for master password reset
@@ -295,14 +302,64 @@ class PasswordManager(QMainWindow):
         dialog = PasswordStrengthCheckerDialog(self)
         dialog.exec()
 
+    def show_encryption_settings(self):
+        """Show the encryption settings dialog"""
+        from app.ui.encryption_settings_dialog import EncryptionSettingsDialog
+        dialog = EncryptionSettingsDialog(self, self.db_manager)
+        if dialog.exec():
+            self.update_table_with_entries()
+
+    def setup_strength_indicator(self):
+        """Setup the strength indicator in status bar"""
+        self.strength_indicator = QLabel()
+        self.status_bar.addPermanentWidget(self.strength_indicator)
+
+    def update_strength_indicator(self, strength: str):
+        """Update the password strength indicator"""
+        color_map = {
+            "Very Weak": "red",
+            "Weak": "orange",
+            "Medium": "yellow",
+            "Strong": "lightgreen",
+            "Very Strong": "green"
+        }
+        color = color_map.get(strength, "black")
+        self.strength_indicator.setText(f"Password Strength: {strength}")
+        self.strength_indicator.setStyleSheet(f"color: {color}; font-weight: bold;")
+
+    def update_encryption_indicator(self, strategy: str):
+        """Update the encryption strategy indicator"""
+        self.status_bar.showMessage(f"Encryption: {strategy}", 3000)
+
+    def show_status_message(self, message: str, timeout: int = 3000):
+        """Show a message in the status bar"""
+        self.status_bar.showMessage(message, timeout)
+
     def update(self, event: DatabaseEvent, data: dict) -> None:
         """Handle database change notifications"""
-        if event in [DatabaseEvent.ENTRY_ADDED, DatabaseEvent.ENTRY_MODIFIED, 
-                    DatabaseEvent.ENTRY_DELETED]:
-            self.update_table_with_entries()
-        elif event == DatabaseEvent.DATABASE_ENCRYPTED:
-            self.update_table_with_entries()
-            QMessageBox.information(self, "Success", "Database has been re-encrypted")
+        match event:
+            case DatabaseEvent.ENTRY_ADDED:
+                self.update_table_with_entries()
+                self.show_status_message("New entry added")
+                
+            case DatabaseEvent.ENTRY_MODIFIED:
+                self.update_table_with_entries()
+                self.show_status_message("Entry modified")
+                
+            case DatabaseEvent.ENTRY_DELETED:
+                self.update_table_with_entries()
+                self.show_status_message("Entry deleted")
+                
+            case DatabaseEvent.DATABASE_ENCRYPTED:
+                self.update_table_with_entries()
+                if data.get("success", False):
+                    self.show_status_message("Database encryption changed successfully")
+                else:
+                    self.show_status_message(f"Encryption error: {data.get('error', 'Unknown error')}")
+                
+            case DatabaseEvent.ENCRYPTION_STRATEGY_CHANGED:
+                self.update_encryption_indicator(data.get("strategy"))
+                self.show_status_message(f"Encryption strategy changed to: {data.get('strategy')}")
 
     def closeEvent(self, event):
         """Clean up observer when window closes"""

@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QGridLayout,
 )
 from app.utils.database_manager import DatabaseManager
-from app.utils.password_strength_checker import check_password_strength
+from app.utils.decorator_password_strength_checker import check_password_strength
 
 
 class EditPassword(QDialog):

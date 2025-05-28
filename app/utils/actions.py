@@ -59,6 +59,17 @@ class Actions:
         )
         self.about_action = self.create_action("About", self.show_about_dialog)
 
+        # Add encryption settings action
+        self.encryption_settings_action = QAction("Encryption Settings", self.parent)
+        self.encryption_settings_action.triggered.connect(
+            self.parent.show_encryption_settings
+        )
+
+        # Add access logs action
+        self.view_logs_action = self.create_action(
+            "View Access Logs", self.show_access_logs
+        )
+
     def create_action(self, text, slot, checkable=False):
         action = QAction(QIcon(), text, self.parent)
         action.setStatusTip(text)
@@ -110,3 +121,6 @@ class Actions:
 
     def show_about_dialog(self):
         self.parent.show_about_dialog()
+
+    def show_access_logs(self):
+        self.parent.show_access_logs()
