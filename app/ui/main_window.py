@@ -27,6 +27,7 @@ from app.ui.user_guide_dialog import UserGuideDialog
 from app.utils.actions import Actions
 from app.utils.database_manager import DatabaseManager
 from app.utils.master_login import MasterLogin
+from app.utils.observer import DatabaseObserver, DatabaseEvent
 
 
 class PasswordManager(QMainWindow):
@@ -36,6 +37,7 @@ class PasswordManager(QMainWindow):
         self.actions = Actions(self, self.db_manager)
         self.setup_main_window()
         self.setup_menu_bar()
+        self.db_manager.attach(self)  # Register as observer
 
     def initialize_ui(self):
         self.setWindowTitle("PyQt Password Manager")
@@ -292,3 +294,17 @@ class PasswordManager(QMainWindow):
     def show_password_strength_checker(self):
         dialog = PasswordStrengthCheckerDialog(self)
         dialog.exec()
+
+    def update(self, event: DatabaseEvent, data: dict) -> None:
+        """Handle database change notifications"""
+        if event in [DatabaseEvent.ENTRY_ADDED, DatabaseEvent.ENTRY_MODIFIED, 
+                    DatabaseEvent.ENTRY_DELETED]:
+            self.update_table_with_entries()
+        elif event == DatabaseEvent.DATABASE_ENCRYPTED:
+            self.update_table_with_entries()
+            QMessageBox.information(self, "Success", "Database has been re-encrypted")
+
+    def closeEvent(self, event):
+        """Clean up observer when window closes"""
+        self.db_manager.detach(self)
+        super().closeEvent(event)

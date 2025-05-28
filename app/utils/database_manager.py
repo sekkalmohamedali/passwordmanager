@@ -9,10 +9,12 @@ from PyQt6.QtWidgets import QMessageBox, QFileDialog
 import base64
 from cryptography.fernet import Fernet
 from PyQt6.QtSql import QSqlQuery, QSqlDatabase
+from app.utils.observer import DatabaseSubject, DatabaseEvent
 
 
-class DatabaseManager:
+class DatabaseManager(DatabaseSubject):
     def __init__(self):
+        super().__init__()  # Initialize the DatabaseSubject first
         self.db_name = "password.db"
         self.db = QSqlDatabase.addDatabase("QSQLITE")
         self.db.setDatabaseName(self.db_name)
@@ -69,14 +71,23 @@ class DatabaseManager:
         query.addBindValue(website)
         query.addBindValue(username)
         query.addBindValue(encrypted_password)
-        return query.exec()
+        success = query.exec()
+        if success:
+            self.notify(DatabaseEvent.ENTRY_ADDED, {
+                "website": website,
+                "username": username
+            })
+        return success
         # Remove add_password_to_history call
 
     def delete_login(self, row_id):
         query = QSqlQuery()
         query.prepare("DELETE FROM logins WHERE id = ?")
         query.addBindValue(row_id)
-        return query.exec()
+        success = query.exec()
+        if success:
+            self.notify(DatabaseEvent.ENTRY_DELETED, {"id": row_id})
+        return success
 
     def edit_login_password(self, row_id, password):
         """Update password for an existing entry"""
