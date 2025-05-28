@@ -5,10 +5,10 @@ import os
 import shutil
 import xml.etree.ElementTree as ET
 from PyQt6.QtCore import QSettings
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
-from cryptography.fernet import Fernet
 import base64
+from cryptography.fernet import Fernet
+from PyQt6.QtSql import QSqlQuery, QSqlDatabase
 
 
 class DatabaseManager:
@@ -22,10 +22,11 @@ class DatabaseManager:
 
         self.settings = QSettings("YourCompany", "YourApp")
         self.create_table()
-        self.initialize_encryption()
+        self.cipher = None
 
     def create_table(self):
         query = QSqlQuery()
+        # Create logins table only
         query.exec(
             """
             CREATE TABLE IF NOT EXISTS logins (
@@ -36,19 +37,12 @@ class DatabaseManager:
             )
             """
         )
-
-        # Add a new table for password history
-        query.exec(
-            """
-            CREATE TABLE IF NOT EXISTS password_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                login_id INTEGER,
-                encrypted_password TEXT NOT NULL,
-                date_used DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (login_id) REFERENCES logins(id)
-            )
-            """
-        )
+        # Remove password history table creation
+    
+    def set_encryption_key(self, key):
+        """Initialize cipher with the master key"""
+        key = base64.urlsafe_b64encode(key)
+        self.cipher = Fernet(key)
 
     def initialize_encryption(self):
         master_key = self.settings.value("password_key")
@@ -75,21 +69,8 @@ class DatabaseManager:
         query.addBindValue(website)
         query.addBindValue(username)
         query.addBindValue(encrypted_password)
-
-        if query.exec():
-            login_id = query.lastInsertId()
-            self.add_password_to_history(login_id, encrypted_password)
-            return True
-        return False
-
-    def add_password_to_history(self, login_id, encrypted_password):
-        query = QSqlQuery()
-        query.prepare(
-            "INSERT INTO password_history (login_id, encrypted_password) VALUES (?, ?)"
-        )
-        query.addBindValue(login_id)
-        query.addBindValue(encrypted_password)
         return query.exec()
+        # Remove add_password_to_history call
 
     def delete_login(self, row_id):
         query = QSqlQuery()
@@ -98,31 +79,37 @@ class DatabaseManager:
         return query.exec()
 
     def edit_login_password(self, row_id, password):
-        encrypted_password = self.cipher.encrypt(password.encode()).decode()
-        query = QSqlQuery()
-        query.prepare("UPDATE logins SET encrypted_password = ? WHERE id = ?")
-        query.addBindValue(encrypted_password)
-        query.addBindValue(row_id)
-
-        if query.exec():
-            self.add_password_to_history(row_id, encrypted_password)
-            return True
-        return False
+        """Update password for an existing entry"""
+        try:
+            encrypted_password = self.cipher.encrypt(password.encode()).decode()
+            query = QSqlQuery()
+            query.prepare("UPDATE logins SET encrypted_password = ? WHERE id = ?")
+            query.addBindValue(encrypted_password)
+            query.addBindValue(row_id)
+            return query.exec()
+        except Exception as e:
+            print(f"Error updating password: {str(e)}")
+            return False
 
     def load_table(self):
-        query = QSqlQuery(
-            "SELECT id, website, username, encrypted_password FROM logins ORDER BY id"
-        )
+        if not self.cipher:
+            raise RuntimeError("Encryption key not set")
+            
         entries = []
+        query = QSqlQuery("SELECT id, website, username, encrypted_password FROM logins")
+        
         while query.next():
-            entries.append(
-                {
+            try:
+                entries.append({
                     "id": query.value(0),
                     "website": query.value(1),
                     "username": query.value(2),
-                    "password": self.cipher.decrypt(query.value(3).encode()).decode(),
-                }
-            )
+                    "password": self.cipher.decrypt(query.value(3).encode()).decode()
+                })
+            except Exception as e:
+                print(f"Error decrypting entry {query.value(0)}: {str(e)}")
+                continue
+                
         return entries
 
     def get_password(self, row_id):
@@ -317,40 +304,27 @@ class DatabaseManager:
             self.db.open()
             return False
 
-    def sort_by_website(self, order="ASC"):
-        """
-        Sort the entries by website.
-        """
-        order = order.upper()
-        if order not in ["ASC", "DESC"]:
-            order = "ASC"
-
+    def sort_by_website(self):
         query = QSqlQuery(
-            f"SELECT id, website, username, encrypted_password FROM logins ORDER BY website {order}"
+            """
+            SELECT id, website, username, encrypted_password 
+            FROM logins 
+            ORDER BY website
+            """
         )
-        entries = []
-        while query.next():
-            entries.append(
-                {
-                    "id": query.value(0),
-                    "website": query.value(1),
-                    "username": query.value(2),
-                    "password": self.cipher.decrypt(query.value(3).encode()).decode(),
-                }
-            )
-        return entries
+        return self._process_query_results(query)
 
-    def sort_by_username(self, order="ASC"):
-        """
-        Sort the entries by username.
-        """
-        order = order.upper()
-        if order not in ["ASC", "DESC"]:
-            order = "ASC"
-
+    def sort_by_username(self):
         query = QSqlQuery(
-            f"SELECT id, website, username, encrypted_password FROM logins ORDER BY username {order}"
+            """
+            SELECT id, website, username, encrypted_password 
+            FROM logins 
+            ORDER BY username
+            """
         )
+        return self._process_query_results(query)
+
+    def _process_query_results(self, query):
         entries = []
         while query.next():
             entries.append(
@@ -377,66 +351,109 @@ class DatabaseManager:
         return False
 
     def get_password_history(self, login_id):
-        self.cipher = Fernet(self.settings.value("password_key"))
         query = QSqlQuery()
-        query.prepare(
-            """
+        query.prepare("""
             SELECT encrypted_password, date_used 
             FROM password_history 
             WHERE login_id = ? 
             ORDER BY date_used DESC
-        """
-        )
+        """)
         query.addBindValue(login_id)
-
-        passwords = []
+        
+        history = []
         if query.exec():
             while query.next():
                 encrypted_password = query.value(0)
-                date_used = query.value(1)
-                decrypted_password = self.cipher.decrypt(
-                    encrypted_password.encode()
-                ).decode()
-                passwords.append((decrypted_password, date_used))
-
-        return passwords
+                date = query.value(1)
+                password = self.cipher.decrypt(encrypted_password.encode()).decode()
+                history.append({"password": password, "date": date})
+        return history
 
     def find_duplicate_passwords(self):
-        query = QSqlQuery()
-        query.exec(
-            """
-                SELECT encrypted_password, COUNT(*) as count
-                FROM logins
-                GROUP BY encrypted_password
-                HAVING count > 1
-                ORDER BY count DESC
-            """
-        )
-
-        duplicates = []
+        """Find passwords that are used multiple times"""
+        # First get all entries
+        query = QSqlQuery("SELECT id, website, encrypted_password FROM logins")
+        
+        # Dictionary to store decrypted passwords and their occurrences
+        password_map = {}
+        
         while query.next():
-            encrypted_password = query.value(0)
-            count = query.value(1)
-            decrypted_password = self.cipher.decrypt(
-                encrypted_password.encode()
-            ).decode()
-
-            # Get the websites using this password
-            sub_query = QSqlQuery()
-            sub_query.prepare("SELECT website FROM logins WHERE encrypted_password = ?")
-            sub_query.addBindValue(encrypted_password)
-            sub_query.exec()
-
-            websites = []
-            while sub_query.next():
-                websites.append(sub_query.value(0))
-
-            duplicates.append(
-                {"password": decrypted_password, "count": count, "websites": websites}
-            )
-
+            try:
+                entry_id = query.value(0)
+                website = query.value(1)
+                encrypted_pwd = query.value(2)
+                
+                # Decrypt the password
+                decrypted_pwd = self.cipher.decrypt(encrypted_pwd.encode()).decode()
+                
+                # Add to password map
+                if decrypted_pwd in password_map:
+                    password_map[decrypted_pwd]["count"] += 1
+                    password_map[decrypted_pwd]["websites"].append(website)
+                else:
+                    password_map[decrypted_pwd] = {
+                        "count": 1,
+                        "websites": [website]
+                    }
+            
+            except Exception as e:
+                print(f"Error processing entry {entry_id}: {str(e)}")
+                continue
+        
+        # Filter only passwords used multiple times
+        duplicates = [
+            {
+                "password": pwd,
+                "count": data["count"],
+                "websites": data["websites"]
+            }
+            for pwd, data in password_map.items()
+            if data["count"] > 1
+        ]
+        
         return duplicates
 
     def close(self):
         if self.db.isOpen():
             self.db.close()
+
+    def reencrypt_database(self, old_key, new_key):
+        """Re-encrypt all passwords with new key"""
+        try:
+            # Create ciphers for both keys
+            old_cipher = Fernet(base64.urlsafe_b64encode(old_key))
+            new_cipher = Fernet(base64.urlsafe_b64encode(new_key))
+            
+            # Get all passwords
+            query = QSqlQuery("SELECT id, encrypted_password FROM logins")
+            success = True
+            
+            while query.next():
+                try:
+                    login_id = query.value(0)
+                    encrypted_pwd = query.value(1)
+                    
+                    # Decrypt with old key
+                    decrypted = old_cipher.decrypt(encrypted_pwd.encode())
+                    # Re-encrypt with new key
+                    new_encrypted = new_cipher.encrypt(decrypted)
+                    
+                    # Update database
+                    update = QSqlQuery()
+                    update.prepare("UPDATE logins SET encrypted_password = ? WHERE id = ?")
+                    update.addBindValue(new_encrypted.decode())
+                    update.addBindValue(login_id)
+                    
+                    if not update.exec():
+                        print(f"Failed to update password for ID {login_id}")
+                        success = False
+                        
+                except Exception as e:
+                    print(f"Error processing entry {login_id}: {str(e)}")
+                    success = False
+                    
+            return success
+            
+        except Exception as e:
+            print(f"Database re-encryption failed: {str(e)}")
+            return False

@@ -17,7 +17,7 @@ class UserGuideDialog(QDialog):
 
     def init_ui(self):
         self.setWindowTitle("User Guide - Password Manager")
-        self.setFixedSize(600, 400)
+        self.setFixedSize(1000, 1000)
         self.setup_ui()
 
     def setup_ui(self):

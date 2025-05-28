@@ -15,6 +15,8 @@ class EditPassword(QDialog):
     def __init__(self, row, parent=None):
         super().__init__(parent)
         self.row = row
+        self.parent = parent
+        self.db_manager = parent.db_manager if parent else None
         self.setWindowTitle("Edit Password")
         self.setFixedSize(450, 200)
         self.setup_ui()
@@ -68,9 +70,15 @@ class EditPassword(QDialog):
                 if reply == QMessageBox.StandardButton.No:
                     return
 
-            DatabaseManager().edit_login_password(self.row, password)
-            self.confirm_button.setText("Success")
-            QTimer.singleShot(2000, self.close)
+            if self.db_manager and self.db_manager.edit_login_password(self.row, password):
+                self.confirm_button.setText("Success")
+                QTimer.singleShot(2000, self.close)
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    "Failed to update password. Please try again."
+                )
 
     def pass_check(self):
         if self.password_input.text() == self.password_confirm_input.text():

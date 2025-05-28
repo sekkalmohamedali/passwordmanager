@@ -21,7 +21,6 @@ from app.ui.duplicate_password_dialog import DuplicatePasswordsDialog
 from app.ui.edit_password_dialog import EditPassword
 from app.ui.new_entry_dialog import NewEntryDialog
 from app.ui.password_generator_dialog import PasswordGenerationDialog
-from app.ui.password_histroy_dialog import PasswordHistoryDialog
 from app.ui.password_strength_checker_dialog import PasswordStrengthCheckerDialog
 from app.ui.reset_password_dialog import ResetPasswordDialog
 from app.ui.user_guide_dialog import UserGuideDialog
@@ -31,15 +30,16 @@ from app.utils.master_login import MasterLogin
 
 
 class PasswordManager(QMainWindow):
-    def __init__(self):
+    def __init__(self, db_manager=None):
         super().__init__()
-        self.db_manager = DatabaseManager()
-        self.actions = Actions(self)
-        self.initialize_ui()
+        self.db_manager = db_manager if db_manager else DatabaseManager()
+        self.actions = Actions(self, self.db_manager)
+        self.setup_main_window()
+        self.setup_menu_bar()
 
     def initialize_ui(self):
         self.setWindowTitle("PyQt Password Manager")
-        self.setFixedSize(800, 600)
+        self.setFixedSize(2000, 2000)
         self.setup_main_window()
 
     def setup_main_window(self):
@@ -82,7 +82,6 @@ class PasswordManager(QMainWindow):
         tool_menu = menubar.addMenu("Tools")
         tool_menu.addAction(self.actions.password_strength_check_action)
         tool_menu.addAction(self.actions.duplicate_password_finder_action)
-        tool_menu.addAction(self.actions.password_history_action)
         tool_menu.addAction(self.actions.generate_password_action)
 
         # Settings menu
@@ -95,7 +94,7 @@ class PasswordManager(QMainWindow):
     def create_top_bar(self):
         layout = QHBoxLayout()
 
-        self.search_input = QLineEdit("Search for a specific login")
+        self.search_input = QLineEdit("Search for a specific login or username")
         self.search_input.textChanged.connect(self.filter_passwords)
         self.create_new_entry_button = QPushButton("+")
         self.create_new_entry_button.clicked.connect(self.on_new_entry_clicked)
@@ -166,13 +165,13 @@ class PasswordManager(QMainWindow):
 
             self.entry_table.setCellWidget(row, 3, actions_tab)
 
-    def toggle_password_visibility(self):
-        is_visible = self.show_hide_passwords_action.isChecked()
+    def toggle_password_visibility(self, checked=None):
+        is_visible = checked if checked is not None else self.actions.show_hide_passwords_action.isChecked()
 
         if is_visible:
-            self.show_hide_passwords_action.setText("Hide Passwords")
+            self.actions.show_hide_passwords_action.setText("Hide Passwords")
         else:
-            self.show_hide_passwords_action.setText("Show Passwords")
+            self.actions.show_hide_passwords_action.setText("Show Passwords")
 
         for row in range(self.entry_table.rowCount()):
             password_item = self.entry_table.item(row, 2)
@@ -180,11 +179,9 @@ class PasswordManager(QMainWindow):
                 password_id = self.id_map.get(row)
                 if password_id is not None:
                     if is_visible:
-                        # Fetch and show the actual password
                         actual_password = self.db_manager.get_password(password_id)
                         password_item.setText(actual_password)
                     else:
-                        # Hide the password
                         password_item.setText("*" * len(password_item.text()))
 
     def sort_by_website(self):
@@ -205,8 +202,9 @@ class PasswordManager(QMainWindow):
     # Open a dialog to edit an existing password entry.
     def on_edit_clicked(self, row):
         db_id = self.id_map[row]
-        if EditPassword(db_id).exec():
-            self.update_table_with_entries()  # Changed from update_table
+        dialog = EditPassword(db_id, self)  # Pass self as parent
+        if dialog.exec():
+            self.update_table_with_entries()
 
     # Delete a password entry after user confirmation.
     def on_delete_clicked(self, row):
@@ -266,26 +264,7 @@ class PasswordManager(QMainWindow):
                 self, "No Duplicates", "No duplicate passwords found."
             )
 
-    def show_password_history(self):
-        current_row = self.entry_table.currentRow()
-        if current_row >= 0:
-            login_id = self.id_map[current_row]
-            passwords = self.db_manager.get_password_history(login_id)
-
-            if passwords:
-                dialog = PasswordHistoryDialog(passwords)
-                dialog.exec()
-            else:
-                QMessageBox.information(
-                    self, "No History", "No password history available for this entry."
-                )
-        else:
-            QMessageBox.warning(
-                self,
-                "No Selection",
-                "Please select an entry to view its password history.",
-            )
-
+    
     def show_about_dialog(self):
         dialog = AboutDialog(self)
         dialog.exec()
@@ -301,9 +280,14 @@ class PasswordManager(QMainWindow):
 
     # Open dialog for master password reset
     def on_open_password_reset_clicked(self):
+        # Create MasterLogin instance with the current db_manager
         master_login = MasterLogin()
+        master_login.set_db_manager(self.db_manager)  # Set the existing db_manager
         dialog = ResetPasswordDialog(master_login, self)
-        dialog.exec()
+        
+        if dialog.exec():
+            # Refresh the table after successful password reset
+            self.update_table_with_entries()
 
     def show_password_strength_checker(self):
         dialog = PasswordStrengthCheckerDialog(self)

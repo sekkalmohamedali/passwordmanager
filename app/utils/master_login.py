@@ -2,18 +2,29 @@ from PyQt6.QtCore import QSettings
 import hashlib
 import os
 
-from PyQt6.QtWidgets import QMessageBox
-
 
 class MasterLogin:
     def __init__(self):
-        self.settings = QSettings("YourCompany", "YourApp")
+        self.settings = QSettings("PyQtPasswordManager", "MasterPassword")
+        self.db_manager = None
 
-    def set_password(self, password):
+    def set_db_manager(self, db_manager):
+        self.db_manager = db_manager
+        if self.password_exists():
+            key = self.settings.value("password_key")
+            self.db_manager.set_encryption_key(key)
+
+    def create_password(self, password):
+        """Create new master password"""
         salt = os.urandom(32)
-        key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100000)
+        key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000)
+
         self.settings.setValue("password_salt", salt)
         self.settings.setValue("password_key", key)
+
+        if self.db_manager:
+            self.db_manager.set_encryption_key(key)
+        return True
 
     def check_password(self, password):
         stored_salt = self.settings.value("password_salt")
@@ -26,17 +37,46 @@ class MasterLogin:
         return key == stored_key
 
     def password_reset(self, old_password, new_password):
-        # Check if the old password is correct
+        """Reset master password and re-encrypt database"""
         if not self.check_password(old_password):
+            print("Old password verification failed")
             return False
 
-        # Check if the new password is the same as the old password
-        if old_password == new_password:
-            return False
+        try:
+            # Get old key
+            old_key = self.settings.value("password_key")
+            if not old_key:
+                print("Could not retrieve old encryption key")
+                return False
 
-        # If the old password is correct and new password is different, set the new password
-        self.set_password(new_password)
-        return True
+            # Generate new key
+            new_salt = os.urandom(32)
+            new_key = hashlib.pbkdf2_hmac(
+                "sha256", 
+                new_password.encode(), 
+                new_salt, 
+                100000
+            )
+
+            # Verify database manager exists
+            if not self.db_manager:
+                print("Database manager not initialized")
+                return False
+
+            # Re-encrypt database
+            if not self.db_manager.reencrypt_database(old_key, new_key):
+                print("Database re-encryption failed")
+                return False
+
+            # Save new credentials
+            self.settings.setValue("password_salt", new_salt)
+            self.settings.setValue("password_key", new_key)
+            self.db_manager.set_encryption_key(new_key)
+            return True
+
+        except Exception as e:
+            print(f"Password reset failed: {str(e)}")
+            return False
 
     def password_exists(self):
         return self.settings.contains("password_key")

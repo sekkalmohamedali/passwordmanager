@@ -66,27 +66,21 @@ class ResetPasswordDialog(QDialog):
             QMessageBox.warning(self, "Error", "Original password is incorrect")
         elif new_password != new_confirm:
             QMessageBox.warning(self, "Error", "Passwords do not match")
+        elif len(new_password) < 8:
+            QMessageBox.warning(self, "Error", "Password must be at least 8 characters long")
         else:
-            strength, _, feedback = check_password_strength(new_password)
-
-            if strength in ["Very Weak", "Weak"]:
-                reply = QMessageBox.question(
-                    self,
-                    "Weak Password",
-                    f"Your password is {strength}. Do you want to continue?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                )
-                if reply == QMessageBox.StandardButton.No:
-                    return
-
-            success = self.password_manager.password_reset_action(
-                old_password, new_password
-            )
-            if success:
-                QMessageBox.information(self, "Success", "Password reset successfully")
-                self.accept()
-            else:
-                QMessageBox.warning(self, "Error", "Failed to reset password")
+            try:
+                if self.password_manager.password_reset(old_password, new_password):
+                    QMessageBox.information(self, "Success", 
+                        "Password reset successfully. All stored passwords have been re-encrypted.")
+                    self.accept()
+                else:
+                    QMessageBox.critical(self, "Error", 
+                        "Failed to reset password. Your original password remains unchanged.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", 
+                    f"An error occurred during password reset: {str(e)}\n"
+                    "Your original password remains unchanged.")
 
         # Clear input fields for security
         self.old_password_input.clear()
